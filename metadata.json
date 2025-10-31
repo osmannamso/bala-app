@@ -1,0 +1,7 @@
+{
+  "name": "bala-app",
+  "description": "An interactive soundboard app for children where you can add categories and record your own sounds.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
