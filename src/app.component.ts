@@ -45,6 +45,10 @@ export class AppComponent implements OnInit {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
 
+  // Deletion state signals
+  deleteConfirmation = signal<{type: 'category' | 'item', data: Category | Item} | null>(null);
+  isDeleting = signal(false);
+
   async ngOnInit(): Promise<void> {
     await this.loadCategories();
     this.isLoading.set(false);
@@ -130,6 +134,45 @@ export class AppComponent implements OnInit {
       };
       await this.dbService.addItem(item);
       this.selectCategory(category); // Reselect to refresh item list
+    }
+  }
+
+  // --- Deletion Handling ---
+  
+  requestDeleteCategory(event: MouseEvent, category: Category): void {
+    event.stopPropagation();
+    this.deleteConfirmation.set({ type: 'category', data: category });
+  }
+
+  requestDeleteItem(event: MouseEvent, item: Item): void {
+    event.stopPropagation();
+    this.deleteConfirmation.set({ type: 'item', data: item });
+  }
+
+  cancelDeletion(): void {
+    this.deleteConfirmation.set(null);
+  }
+
+  async confirmDeletion(): Promise<void> {
+    const confirmation = this.deleteConfirmation();
+    if (!confirmation) return;
+
+    this.isDeleting.set(true);
+
+    try {
+      if (confirmation.type === 'category') {
+        await this.dbService.deleteCategory(confirmation.data.id!);
+        await this.loadCategories();
+      } else { // 'item'
+        await this.dbService.deleteItem(confirmation.data.id!);
+        const category = this.selectedCategory()!;
+        this.items.set(await this.dbService.getItems(category.id!));
+      }
+    } catch (error) {
+        console.error("Failed to delete:", error);
+    } finally {
+        this.isDeleting.set(false);
+        this.deleteConfirmation.set(null);
     }
   }
 

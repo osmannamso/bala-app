@@ -95,4 +95,39 @@ export class DatabaseService {
       request.onsuccess = () => resolve(request.result as number);
     });
   }
+
+  async deleteCategory(id: number): Promise<void> {
+    const db = await this.dbPromise;
+    const tx = db.transaction([ITEMS_STORE, CATEGORIES_STORE], 'readwrite');
+    const itemsStore = tx.objectStore(ITEMS_STORE);
+    const categoryStore = tx.objectStore(CATEGORIES_STORE);
+    const itemsIndex = itemsStore.index('categoryId');
+
+    // 1. Delete all items associated with the category
+    const itemsRequest = itemsIndex.openKeyCursor(IDBKeyRange.only(id));
+    itemsRequest.onsuccess = () => {
+      const cursor = itemsRequest.result;
+      if (cursor) {
+        itemsStore.delete(cursor.primaryKey);
+        cursor.continue();
+      }
+    };
+    
+    // 2. Delete the category itself
+    categoryStore.delete(id);
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async deleteItem(id: number): Promise<void> {
+    const store = await this.getStore(ITEMS_STORE, 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  }
 }
